@@ -80,6 +80,7 @@ tools/
   py            run the project venv's Python with the snap sandbox env stripped
   scan_ha.py    exercise the async client against forwarded ports; print adverts
   bleconn.py    pcap decoder + one-shot probe for the bleconnd protocol
+  run_against_ap.py  run the real SSH transport against a live AP with a key file
   validate_ha.py  validate the habluetooth API surface inside a real HA venv
 ```
 
@@ -94,6 +95,15 @@ ssh -N -L 8383:127.0.0.1:8383 <ap-host>
 
 # scan and print parsed advertisements (one or more comma-separated targets)
 tools/py tools/scan_ha.py --targets 127.0.0.1:8383 --duration 20
+```
+
+To exercise the **real SSH transport** (`ssh.py`) against a live AP with a key
+file — the production path, without Home Assistant — run it in the HA venv (needs
+`asyncssh`):
+
+```bash
+.venv/bin/python tools/run_against_ap.py --host 192.168.10.20 --key ~/.ssh/id_ed25519
+# add --jump-host 192.168.10.1 if the AP is only reachable via the gateway
 ```
 
 To validate the Home Assistant API surface, run the checker **inside your real HA
