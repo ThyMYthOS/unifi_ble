@@ -121,3 +121,9 @@ and what can and cannot be run where).
   reservation API (the radio reports `maxConnections: 8`).
 - Investigate the network-facing `:8381` bridge to remove SSH entirely (requires
   reversing its `BleAuthProto` DH + pre-shared-secret handshake).
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE) — the same license as Home
+Assistant core, so the integration can be contributed upstream without a
+relicensing step.
