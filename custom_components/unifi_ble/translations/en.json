@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a UniFi AP BLE proxy",
+        "description": "1) In UniFi, go to Settings → System → Device SSH Authentication, enable it, and add this public key (covers the APs and the gateway):\n\n```\n{public_key}\n```\n\n2) Enter the AP's address. If Home Assistant cannot reach the AP directly, set the jump host to your UDM/gateway; the same key is used for both.",
+        "data": {
+          "host": "AP host / IP",
+          "username": "AP SSH username",
+          "port": "bleconnd port",
+          "jump_host": "Jump host (UDM/gateway) — optional",
+          "jump_username": "Jump host SSH username — optional"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not tunnel in and reach bleconnd. Check SSH access, the key provisioning, and the jump host.",
+      "no_adapter": "Connected, but the AP reported no BLE interface."
+    },
+    "abort": {
+      "already_configured": "This AP is already configured."
+    }
+  }
+}
