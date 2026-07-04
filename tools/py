@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Run the project venv's Python with the snap sandbox's Python env vars stripped,
+# so packages resolve from (and install into) .venv, not the snap paths.
+# Usage:  tools/py script.py ...        tools/py -m pip install <pkg>
+exec env -u PYTHONPATH -u PYTHONHOME -u PIP_PREFIX \
+  "$(cd "$(dirname "$0")/.." && pwd)/.venv/bin/python" "$@"
