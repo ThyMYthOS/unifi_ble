@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi AP BLE-proxy toevoegen",
+        "description": "Voeg de onderstaande openbare SSH-sleutel toe aan UniFi zodat deze integratie kan inloggen.\n\n**Voor de APs:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nschakel het in en voeg de sleutel toe (deze wordt naar je geadopteerde APs gepusht).\n\n**Voor de gateway (alleen als je die als jump-host gebruikt):** \n*Settings → Control Plane → Console* \nlaat alleen een SSH-wachtwoord instellen, dus log één keer via SSH in op de console met dat wachtwoord en voeg de sleutel zelf toe aan `~/.ssh/authorized_keys`.\n\nVoer daarna hieronder het adres van de AP in — stel de jump-host in op je gateway als Home Assistant de AP niet rechtstreeks kan bereiken.",
+        "data": {
+          "public_key": "Openbare SSH-sleutel (alleen-lezen — kopieer dit naar UniFi)",
+          "host": "AP-host / IP",
+          "username": "AP SSH-gebruikersnaam",
+          "port": "bleconnd-poort",
+          "jump_host": "Jump-host (UDM/gateway) — optioneel",
+          "jump_username": "SSH-gebruikersnaam jump-host — optioneel"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kon de tunnel niet opzetten en bleconnd niet bereiken. Controleer de SSH-toegang, de sleutel en de jump-host.",
+      "no_adapter": "Verbonden, maar de AP meldde geen BLE-interface."
+    },
+    "abort": {
+      "already_configured": "Deze AP is al geconfigureerd."
+    }
+  }
+}

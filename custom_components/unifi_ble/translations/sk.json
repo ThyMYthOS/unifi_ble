@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pridať BLE proxy prístupového bodu UniFi",
+        "description": "Pridajte v UniFi nižšie zobrazený verejný kľúč SSH, aby sa táto integrácia mohla prihlásiť.\n\n**Pre prístupové body:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nzapnite to a pridajte kľúč (rozošle sa na vaše adoptované prístupové body).\n\n**Pre bránu (len ak ju používate ako jump host):** \n*Settings → Control Plane → Console* \numožňuje nastaviť iba heslo SSH, preto sa raz prihláste cez SSH do konzoly týmto heslom a kľúč sami pridajte do `~/.ssh/authorized_keys`.\n\nPotom nižšie zadajte adresu prístupového bodu — nastavte ako jump host svoju bránu, ak Home Assistant nedosiahne prístupový bod priamo.",
+        "data": {
+          "public_key": "Verejný kľúč SSH (len na čítanie — skopírujte do UniFi)",
+          "host": "Host / IP prístupového bodu",
+          "username": "Používateľské meno SSH prístupového bodu",
+          "port": "Port bleconnd",
+          "jump_host": "Jump host (UDM/brána) — voliteľné",
+          "jump_username": "Používateľské meno SSH jump hostu — voliteľné"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepodarilo sa vytvoriť tunel a spojiť sa s bleconnd. Skontrolujte prístup SSH, nasadenie kľúča a jump host.",
+      "no_adapter": "Pripojené, ale prístupový bod nehlási žiadne rozhranie BLE."
+    },
+    "abort": {
+      "already_configured": "Tento prístupový bod je už nakonfigurovaný."
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ajouter un proxy BLE de point d'accès UniFi",
+        "description": "Ajoutez la clé SSH publique ci-dessous dans UniFi pour que cette intégration puisse se connecter.\n\n**Pour les points d'accès :** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nactivez l'option et ajoutez la clé (elle est déployée sur vos points d'accès adoptés).\n\n**Pour la passerelle (uniquement si vous l'utilisez comme hôte de rebond) :** \n*Settings → Control Plane → Console* \nne permet de définir qu'un mot de passe SSH. Connectez-vous donc une fois en SSH à la console avec ce mot de passe et ajoutez vous-même la clé à `~/.ssh/authorized_keys`.\n\nSaisissez ensuite l'adresse du point d'accès ci-dessous — définissez l'hôte de rebond sur votre passerelle si Home Assistant ne peut pas joindre le point d'accès directement.",
+        "data": {
+          "public_key": "Clé SSH publique (lecture seule — à copier dans UniFi)",
+          "host": "Hôte / IP du point d'accès",
+          "username": "Nom d'utilisateur SSH du point d'accès",
+          "port": "Port bleconnd",
+          "jump_host": "Hôte de rebond (UDM/passerelle) — optionnel",
+          "jump_username": "Nom d'utilisateur SSH de l'hôte de rebond — optionnel"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible d'établir le tunnel et de joindre bleconnd. Vérifiez l'accès SSH, le déploiement de la clé et l'hôte de rebond.",
+      "no_adapter": "Connecté, mais le point d'accès n'a signalé aucune interface BLE."
+    },
+    "abort": {
+      "already_configured": "Ce point d'accès est déjà configuré."
+    }
+  }
+}

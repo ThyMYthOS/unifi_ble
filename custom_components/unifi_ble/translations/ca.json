@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Afegeix un proxy BLE de punt d'accés UniFi",
+        "description": "Afegeix a UniFi la clau SSH pública que es mostra a sota perquè aquesta integració pugui iniciar la sessió.\n\n**Per als punts d'accés:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nactiva-ho i afegeix la clau (es distribueix als teus punts d'accés adoptats).\n\n**Per a la passarel·la (només si la fas servir com a amfitrió de salt):** \n*Settings → Control Plane → Console* \nnomés permet definir una contrasenya SSH, així que connecta't una vegada per SSH a la consola amb aquesta contrasenya i afegeix tu mateix la clau a `~/.ssh/authorized_keys`.\n\nDesprés introdueix a sota l'adreça del punt d'accés — defineix l'amfitrió de salt com la teva passarel·la si Home Assistant no pot arribar directament al punt d'accés.",
+        "data": {
+          "public_key": "Clau SSH pública (només lectura — copia-la a UniFi)",
+          "host": "Amfitrió / IP del punt d'accés",
+          "username": "Usuari SSH del punt d'accés",
+          "port": "Port de bleconnd",
+          "jump_host": "Amfitrió de salt (UDM/passarel·la) — opcional",
+          "jump_username": "Usuari SSH de l'amfitrió de salt — opcional"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No s'ha pogut crear el túnel ni arribar a bleconnd. Comprova l'accés SSH, la clau i l'amfitrió de salt.",
+      "no_adapter": "Connectat, però el punt d'accés no ha informat de cap interfície BLE."
+    },
+    "abort": {
+      "already_configured": "Aquest punt d'accés ja està configurat."
+    }
+  }
+}

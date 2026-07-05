@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi AP BLE-proxy hozzáadása",
+        "description": "Add hozzá az alábbi nyilvános SSH-kulcsot a UniFihez, hogy ez az integráció be tudjon jelentkezni.\n\n**A hozzáférési pontokhoz:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nkapcsold be, és add hozzá a kulcsot (a rendszer eljuttatja az adoptált hozzáférési pontokhoz).\n\n**Az átjáróhoz (csak ha ugrópontként használod):** \n*Settings → Control Plane → Console* \ncsak SSH-jelszó beállítását teszi lehetővé, ezért jelentkezz be egyszer SSH-n a konzolra ezzel a jelszóval, és a kulcsot magad add hozzá a `~/.ssh/authorized_keys` fájlhoz.\n\nEzután add meg alább a hozzáférési pont címét — állítsd be ugrópontnak az átjáródat, ha a Home Assistant nem éri el közvetlenül a hozzáférési pontot.",
+        "data": {
+          "public_key": "Nyilvános SSH-kulcs (csak olvasható — másold a UniFibe)",
+          "host": "Hozzáférési pont gazdagép / IP",
+          "username": "Hozzáférési pont SSH-felhasználóneve",
+          "port": "bleconnd port",
+          "jump_host": "Ugrópont (UDM/átjáró) — opcionális",
+          "jump_username": "Ugrópont SSH-felhasználóneve — opcionális"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nem sikerült létrehozni az alagutat és elérni a bleconnd-ot. Ellenőrizd az SSH-hozzáférést, a kulcsot és az ugrópontot.",
+      "no_adapter": "Csatlakozva, de a hozzáférési pont nem jelentett BLE-interfészt."
+    },
+    "abort": {
+      "already_configured": "Ez a hozzáférési pont már konfigurálva van."
+    }
+  }
+}

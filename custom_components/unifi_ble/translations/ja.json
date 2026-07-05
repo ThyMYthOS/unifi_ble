@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi AP BLE プロキシを追加",
+        "description": "この統合がログインできるように、下に表示された SSH 公開鍵を UniFi に追加してください。\n\n**AP の場合：** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \n有効にして鍵を追加します（採用済みの AP に配布されます）。\n\n**ゲートウェイの場合（踏み台ホストとして使う場合のみ）：** \n*Settings → Control Plane → Console* \nは SSH パスワードの設定のみ可能です。そのため、そのパスワードで一度 SSH でコンソールにログインし、鍵を `~/.ssh/authorized_keys` に自分で追記してください。\n\nその後、下に AP のアドレスを入力してください。Home Assistant が AP に直接到達できない場合は、踏み台ホストにゲートウェイを設定します。",
+        "data": {
+          "public_key": "SSH 公開鍵（読み取り専用 — UniFi にコピー）",
+          "host": "AP ホスト / IP",
+          "username": "AP SSH ユーザー名",
+          "port": "bleconnd ポート",
+          "jump_host": "踏み台ホスト（UDM/ゲートウェイ）— 任意",
+          "jump_username": "踏み台ホストの SSH ユーザー名 — 任意"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "トンネルを確立して bleconnd に到達できませんでした。SSH アクセス、鍵の配布、踏み台ホストを確認してください。",
+      "no_adapter": "接続しましたが、AP は BLE インターフェースを報告しませんでした。"
+    },
+    "abort": {
+      "already_configured": "この AP は既に構成されています。"
+    }
+  }
+}

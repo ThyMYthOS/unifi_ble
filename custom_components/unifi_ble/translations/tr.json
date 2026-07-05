@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi AP BLE proxy'si ekle",
+        "description": "Bu entegrasyonun oturum açabilmesi için aşağıda gösterilen genel SSH anahtarını UniFi'ye ekleyin.\n\n**AP'ler için:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \netkinleştirin ve anahtarı ekleyin (kabul edilen AP'lerinize gönderilir).\n\n**Ağ geçidi için (yalnızca atlama sunucusu olarak kullanacaksanız):** \n*Settings → Control Plane → Console* \nyalnızca bir SSH parolası ayarlamanıza izin verir; bu nedenle bu parolayla bir kez SSH ile konsola bağlanın ve anahtarı `~/.ssh/authorized_keys` dosyasına kendiniz ekleyin.\n\nArdından aşağıya AP'nin adresini girin — Home Assistant AP'ye doğrudan ulaşamıyorsa atlama sunucusunu ağ geçidiniz olarak ayarlayın.",
+        "data": {
+          "public_key": "Genel SSH anahtarı (salt okunur — UniFi'ye kopyalayın)",
+          "host": "AP ana bilgisayarı / IP",
+          "username": "AP SSH kullanıcı adı",
+          "port": "bleconnd bağlantı noktası",
+          "jump_host": "Atlama sunucusu (UDM/ağ geçidi) — isteğe bağlı",
+          "jump_username": "Atlama sunucusu SSH kullanıcı adı — isteğe bağlı"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Tünel kurulup bleconnd'a ulaşılamadı. SSH erişimini, anahtarı ve atlama sunucusunu kontrol edin.",
+      "no_adapter": "Bağlanıldı ancak AP herhangi bir BLE arabirimi bildirmedi."
+    },
+    "abort": {
+      "already_configured": "Bu AP zaten yapılandırılmış."
+    }
+  }
+}

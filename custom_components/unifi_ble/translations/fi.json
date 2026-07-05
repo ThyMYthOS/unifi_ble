@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Lisää UniFi-tukiaseman BLE-välityspalvelin",
+        "description": "Lisää alla näkyvä julkinen SSH-avain UniFihin, jotta tämä integraatio voi kirjautua sisään.\n\n**Tukiasemille:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nota käyttöön ja lisää avain (se jaetaan adoptoiduille tukiasemillesi).\n\n**Yhdyskäytävälle (vain jos käytät sitä hyppykoneena):** \n*Settings → Control Plane → Console* \nsallii vain SSH-salasanan asettamisen, joten kirjaudu kerran SSH:lla konsoliin tällä salasanalla ja lisää avain itse tiedostoon `~/.ssh/authorized_keys`.\n\nAnna sitten tukiaseman osoite alle — aseta hyppykoneeksi yhdyskäytäväsi, jos Home Assistant ei tavoita tukiasemaa suoraan.",
+        "data": {
+          "public_key": "Julkinen SSH-avain (vain luku — kopioi UniFihin)",
+          "host": "Tukiaseman osoite / IP",
+          "username": "Tukiaseman SSH-käyttäjänimi",
+          "port": "bleconnd-portti",
+          "jump_host": "Hyppykone (UDM/yhdyskäytävä) — valinnainen",
+          "jump_username": "Hyppykoneen SSH-käyttäjänimi — valinnainen"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Tunnelin luonti ja yhteys bleconndiin epäonnistui. Tarkista SSH-yhteys, avaimen asennus ja hyppykone.",
+      "no_adapter": "Yhdistetty, mutta tukiasema ei ilmoittanut BLE-liitäntää."
+    },
+    "abort": {
+      "already_configured": "Tämä tukiasema on jo määritetty."
+    }
+  }
+}

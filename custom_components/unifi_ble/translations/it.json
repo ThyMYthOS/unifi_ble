@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aggiungi proxy BLE per access point UniFi",
+        "description": "Aggiungi in UniFi la chiave SSH pubblica mostrata sotto affinché questa integrazione possa accedere.\n\n**Per gli access point:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nattivala e aggiungi la chiave (viene distribuita agli access point adottati).\n\n**Per il gateway (solo se lo usi come jump host):** \n*Settings → Control Plane → Console* \nconsente di impostare solo una password SSH, quindi accedi una volta via SSH alla console con quella password e aggiungi tu stesso la chiave a `~/.ssh/authorized_keys`.\n\nPoi inserisci qui sotto l'indirizzo dell'access point — imposta il jump host sul tuo gateway se Home Assistant non riesce a raggiungere l'access point direttamente.",
+        "data": {
+          "public_key": "Chiave SSH pubblica (sola lettura — copiala in UniFi)",
+          "host": "Host / IP dell'access point",
+          "username": "Nome utente SSH dell'access point",
+          "port": "Porta bleconnd",
+          "jump_host": "Jump host (UDM/gateway) — opzionale",
+          "jump_username": "Nome utente SSH del jump host — opzionale"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile creare il tunnel e raggiungere bleconnd. Controlla l'accesso SSH, la distribuzione della chiave e il jump host.",
+      "no_adapter": "Connesso, ma l'access point non ha segnalato alcuna interfaccia BLE."
+    },
+    "abort": {
+      "already_configured": "Questo access point è già configurato."
+    }
+  }
+}

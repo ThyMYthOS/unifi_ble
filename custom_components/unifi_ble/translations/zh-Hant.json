@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "新增 UniFi AP 藍牙 (BLE) 代理",
+        "description": "將下方顯示的 SSH 公鑰新增到 UniFi，讓此整合能夠登入。\n\n**對於 AP：** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \n啟用並新增該金鑰（它會派送到你已納管的 AP）。\n\n**對於閘道（僅當你將其用作跳板主機時）：** \n*Settings → Control Plane → Console* \n只允許設定 SSH 密碼，因此請以該密碼透過 SSH 登入主控台一次，並自行將該金鑰附加到 `~/.ssh/authorized_keys`。\n\n接著在下方輸入 AP 的位址——若 Home Assistant 無法直接連到該 AP，請將跳板主機設為你的閘道。",
+        "data": {
+          "public_key": "SSH 公鑰（唯讀——複製到 UniFi）",
+          "host": "AP 主機 / IP",
+          "username": "AP SSH 使用者名稱",
+          "port": "bleconnd 連接埠",
+          "jump_host": "跳板主機（UDM/閘道）——選填",
+          "jump_username": "跳板主機 SSH 使用者名稱——選填"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "無法建立通道並連線到 bleconnd。請檢查 SSH 存取、金鑰佈署與跳板主機。",
+      "no_adapter": "已連線，但該 AP 未回報任何 BLE 介面。"
+    },
+    "abort": {
+      "already_configured": "此 AP 已設定完成。"
+    }
+  }
+}

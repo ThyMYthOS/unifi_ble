@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dodaj proxy BLE punktu dostępowego UniFi",
+        "description": "Dodaj w UniFi poniższy publiczny klucz SSH, aby ta integracja mogła się logować.\n\n**Dla punktów dostępowych:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nwłącz tę opcję i dodaj klucz (zostanie wypchnięty do zaadoptowanych punktów dostępowych).\n\n**Dla bramy (tylko jeśli używasz jej jako hosta pośredniczącego):** \n*Settings → Control Plane → Console* \npozwala ustawić jedynie hasło SSH, więc zaloguj się raz przez SSH do konsoli tym hasłem i samodzielnie dodaj klucz do `~/.ssh/authorized_keys`.\n\nNastępnie wpisz poniżej adres punktu dostępowego — ustaw hosta pośredniczącego na swoją bramę, jeśli Home Assistant nie może połączyć się z punktem dostępowym bezpośrednio.",
+        "data": {
+          "public_key": "Publiczny klucz SSH (tylko do odczytu — skopiuj do UniFi)",
+          "host": "Host / IP punktu dostępowego",
+          "username": "Nazwa użytkownika SSH punktu dostępowego",
+          "port": "Port bleconnd",
+          "jump_host": "Host pośredniczący (UDM/brama) — opcjonalnie",
+          "jump_username": "Nazwa użytkownika SSH hosta pośredniczącego — opcjonalnie"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się utworzyć tunelu i połączyć z bleconnd. Sprawdź dostęp SSH, wdrożenie klucza i host pośredniczący.",
+      "no_adapter": "Połączono, ale punkt dostępowy nie zgłosił interfejsu BLE."
+    },
+    "abort": {
+      "already_configured": "Ten punkt dostępowy jest już skonfigurowany."
+    }
+  }
+}

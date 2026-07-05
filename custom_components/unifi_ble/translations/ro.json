@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adaugă proxy BLE pentru punct de acces UniFi",
+        "description": "Adaugă în UniFi cheia SSH publică afișată mai jos pentru ca această integrare să se poată autentifica.\n\n**Pentru punctele de acces:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nactivează și adaugă cheia (este trimisă către punctele de acces adoptate).\n\n**Pentru gateway (doar dacă îl folosești ca gazdă de salt):** \n*Settings → Control Plane → Console* \npermite doar setarea unei parole SSH, așa că autentifică-te o dată prin SSH la consolă cu acea parolă și adaugă singur cheia în `~/.ssh/authorized_keys`.\n\nApoi introdu mai jos adresa punctului de acces — setează gazda de salt la gateway-ul tău dacă Home Assistant nu poate ajunge direct la punctul de acces.",
+        "data": {
+          "public_key": "Cheie SSH publică (doar citire — copiaz-o în UniFi)",
+          "host": "Gazdă / IP punct de acces",
+          "username": "Utilizator SSH punct de acces",
+          "port": "Port bleconnd",
+          "jump_host": "Gazdă de salt (UDM/gateway) — opțional",
+          "jump_username": "Utilizator SSH gazdă de salt — opțional"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nu s-a putut crea tunelul și contacta bleconnd. Verifică accesul SSH, cheia și gazda de salt.",
+      "no_adapter": "Conectat, dar punctul de acces nu a raportat nicio interfață BLE."
+    },
+    "abort": {
+      "already_configured": "Acest punct de acces este deja configurat."
+    }
+  }
+}

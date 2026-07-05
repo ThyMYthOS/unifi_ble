@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi AP BLE 프록시 추가",
+        "description": "이 통합이 로그인할 수 있도록 아래에 표시된 SSH 공개 키를 UniFi에 추가하세요.\n\n**AP의 경우:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \n활성화하고 키를 추가하세요(채택된 AP로 배포됩니다).\n\n**게이트웨이의 경우(점프 호스트로 사용할 때만):** \n*Settings → Control Plane → Console* \n은(는) SSH 비밀번호만 설정할 수 있으므로, 해당 비밀번호로 콘솔에 SSH로 한 번 로그인한 뒤 키를 `~/.ssh/authorized_keys`에 직접 추가하세요.\n\n그런 다음 아래에 AP 주소를 입력하세요 — Home Assistant가 AP에 직접 연결할 수 없으면 점프 호스트를 게이트웨이로 설정하세요.",
+        "data": {
+          "public_key": "SSH 공개 키(읽기 전용 — UniFi에 복사)",
+          "host": "AP 호스트 / IP",
+          "username": "AP SSH 사용자 이름",
+          "port": "bleconnd 포트",
+          "jump_host": "점프 호스트(UDM/게이트웨이) — 선택 사항",
+          "jump_username": "점프 호스트 SSH 사용자 이름 — 선택 사항"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "터널을 설정하여 bleconnd에 연결하지 못했습니다. SSH 접근, 키 배포, 점프 호스트를 확인하세요.",
+      "no_adapter": "연결되었지만 AP가 BLE 인터페이스를 보고하지 않았습니다."
+    },
+    "abort": {
+      "already_configured": "이 AP는 이미 구성되어 있습니다."
+    }
+  }
+}

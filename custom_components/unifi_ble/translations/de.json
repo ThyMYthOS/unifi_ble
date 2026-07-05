@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi-AP-BLE-Proxy hinzufügen",
+        "description": "Füge den unten angezeigten öffentlichen SSH-Schlüssel in UniFi hinzu, damit sich diese Integration anmelden kann.\n\n**Für die APs:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \naktiviere die Funktion und füge den Schlüssel hinzu (er wird an deine adoptierten APs verteilt).\n\n**Für das Gateway (nur wenn du es als Jump-Host benötigst):** \n*Settings → Control Plane → Console* \nerlaubt nur ein SSH-Passwort. Melde dich daher einmal per SSH mit diesem Passwort an der Konsole an und füge den Schlüssel selbst zu `~/.ssh/authorized_keys` hinzu.\n\nGib anschließend unten die Adresse des APs ein — setze den Jump-Host auf dein Gateway, falls Home Assistant den AP nicht direkt erreichen kann.",
+        "data": {
+          "public_key": "Öffentlicher SSH-Schlüssel (schreibgeschützt — in UniFi kopieren)",
+          "host": "AP-Host / IP",
+          "username": "AP-SSH-Benutzername",
+          "port": "bleconnd-Port",
+          "jump_host": "Jump-Host (UDM/Gateway) — optional",
+          "jump_username": "SSH-Benutzername des Jump-Hosts — optional"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zu bleconnd über den Tunnel fehlgeschlagen. Prüfe den SSH-Zugang, die Schlüsselbereitstellung und den Jump-Host.",
+      "no_adapter": "Verbunden, aber der AP meldet keine BLE-Schnittstelle."
+    },
+    "abort": {
+      "already_configured": "Dieser AP ist bereits konfiguriert."
+    }
+  }
+}

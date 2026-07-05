@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Legg til UniFi AP BLE-proxy",
+        "description": "Legg til den offentlige SSH-nøkkelen nedenfor i UniFi slik at denne integrasjonen kan logge inn.\n\n**For tilgangspunktene:** \n*UniFi Devices → Device Updates and Settings → Device SSH Authentication* \nslå på og legg til nøkkelen (den sendes til de adopterte tilgangspunktene dine).\n\n**For gatewayen (bare hvis du bruker den som hoppvert):** \n*Settings → Control Plane → Console* \nlar deg bare angi et SSH-passord, så logg inn én gang via SSH på konsollen med det passordet og legg til nøkkelen i `~/.ssh/authorized_keys` selv.\n\nSkriv deretter inn adressen til tilgangspunktet nedenfor — sett hoppverten til gatewayen din hvis Home Assistant ikke når tilgangspunktet direkte.",
+        "data": {
+          "public_key": "Offentlig SSH-nøkkel (skrivebeskyttet — kopier til UniFi)",
+          "host": "Tilgangspunkt vert / IP",
+          "username": "SSH-brukernavn for tilgangspunkt",
+          "port": "bleconnd-port",
+          "jump_host": "Hoppvert (UDM/gateway) — valgfritt",
+          "jump_username": "SSH-brukernavn for hoppvert — valgfritt"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke opprette tunnelen og nå bleconnd. Sjekk SSH-tilgangen, nøkkelen og hoppverten.",
+      "no_adapter": "Tilkoblet, men tilgangspunktet rapporterte ingen BLE-grensesnitt."
+    },
+    "abort": {
+      "already_configured": "Dette tilgangspunktet er allerede konfigurert."
+    }
+  }
+}
