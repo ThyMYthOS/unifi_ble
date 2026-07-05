@@ -1,0 +1,116 @@
+name: HA Compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, to catch a new HA stable release breaking compatibility.
+    - cron: "0 6 * * 1"
+
+jobs:
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: home-assistant/actions/hassfest@master
+
+  compatibility:
+    name: HA ${{ matrix.ha }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "min" = the version pinned in hacs.json; "latest" = newest on PyPI.
+        ha: [min, latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          # Cache pip's wheel/download cache; key tracks our manifest + hacs.json,
+          # so repeated runs against an unchanged version reuse downloads.
+          cache: pip
+          cache-dependency-path: |
+            hacs.json
+            custom_components/unifi_ble/manifest.json
+
+      - name: Resolve Home Assistant version
+        id: ha
+        run: |
+          if [ "${{ matrix.ha }}" = "min" ]; then
+            version=$(python -c "import json; print(json.load(open('hacs.json'))['homeassistant'])")
+            echo "spec=homeassistant==${version}" >> "$GITHUB_OUTPUT"
+          else
+            echo "spec=homeassistant" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Home Assistant + integration requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "${{ steps.ha.outputs.spec }}"
+          python - <<'PY'
+          import json, pathlib, subprocess, sys
+          import homeassistant
+          components = pathlib.Path(homeassistant.__file__).parent / "components"
+
+          def manifest(domain):
+              path = components / domain / "manifest.json"
+              return json.loads(path.read_text()) if path.exists() else {}
+
+          own = json.loads(
+              pathlib.Path("custom_components/unifi_ble/manifest.json").read_text())
+          # `pip install homeassistant` skips integration requirements. Gather them
+          # for the bluetooth stack and its hard-dependency integrations, resolved
+          # transitively (e.g. bluetooth -> usb -> aiousbwatcher), since those get
+          # imported at import time. Pinned at this HA release's versions.
+          reqs, seen = [], set()
+          stack = ["bluetooth", "bluetooth_adapters", *own.get("dependencies", [])]
+          while stack:
+              domain = stack.pop()
+              if domain in seen:
+                  continue
+              seen.add(domain)
+              m = manifest(domain)
+              reqs += m.get("requirements", [])
+              stack += m.get("dependencies", [])
+          reqs += own.get("requirements", [])
+          # serialx (a `usb` requirement) imports aioesphomeapi in its esphome
+          # serial platform without declaring it, so the bluetooth -> usb chain
+          # needs it present to import.
+          reqs.append("aioesphomeapi")
+          reqs = list(dict.fromkeys(reqs))
+          subprocess.check_call([sys.executable, "-m", "pip", "install", *reqs])
+          PY
+
+      - name: Report resolved versions
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          for pkg in ("homeassistant", "habluetooth", "bleak", "asyncssh"):
+              print(pkg, version(pkg))
+          PY
+
+      - name: Import the integration against this HA version
+        run: |
+          python - <<'PY'
+          import importlib, sys, traceback
+          # Importing every module exercises the whole HA API surface the
+          # integration touches, so a breaking HA change fails the build.
+          failed = False
+          for suffix in ("", ".bleconn", ".ssh", ".scanner", ".client",
+                         ".config_flow", ".const", ".binary_sensor", ".sensor"):
+              name = "custom_components.unifi_ble" + suffix
+              try:
+                  importlib.import_module(name)
+              except Exception:
+                  failed = True
+                  tb = traceback.format_exc()
+                  # Emit as a GitHub annotation (readable without log access).
+                  print(f"::error title=import {name}::" + tb.replace("\n", "%0A"))
+                  print(tb, file=sys.stderr)
+          if failed:
+              sys.exit(1)
+          print("custom_components.unifi_ble imports cleanly")
+          PY
