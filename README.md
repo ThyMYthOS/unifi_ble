@@ -93,6 +93,8 @@ repo
 │  ├─ client.py ## UnifiBleakClient, the bleak backend for connectable GATT
 │  ├─ __init__.py ## entry setup: one scanner per AP, register + background task
 │  ├─ config_flow.py ## setup UI: show public key, collect + validate AP details
+│  ├─ binary_sensor.py ## diagnostic: AP connectivity
+│  ├─ sensor.py ## diagnostics: active connections, devices in range
 │  ├─ const.py
 │  ├─ manifest.json
 │  ├─ strings.json

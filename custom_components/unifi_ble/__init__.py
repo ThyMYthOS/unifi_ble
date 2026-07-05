@@ -3,15 +3,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from datetime import timedelta
 
 from homeassistant.components.bluetooth import (
     HaBluetoothConnector,
     async_register_scanner,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .bleconn import Advertisement, BleConnClient, probe_transport
 from .client import UnifiBleakClient, register_client, unregister_client
@@ -32,6 +36,13 @@ from .scanner import UnifiBleScanner
 from .ssh import SshTunnelTransport, async_get_keypair
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+# Diagnostic coordinator: reads a cheap in-memory snapshot (no radio I/O); also
+# refreshed immediately on connect/disconnect via on_state.
+_DIAGNOSTICS_INTERVAL = timedelta(seconds=30)
+# A device counts as "in range" if seen within this many seconds.
+_DEVICES_IN_RANGE_WINDOW = 300.0
 
 
 def _describe_adv(adv: Advertisement) -> str:
@@ -61,13 +72,16 @@ class UnifiBleRuntime:
     """Holds the per-entry client, scanner and background task."""
 
     def __init__(self, client: BleConnClient, unregister, unsetup,
-                 task: asyncio.Task, source: str) -> None:
-        """Store the handles needed to tear the entry down cleanly."""
+                 task: asyncio.Task, source: str,
+                 coordinator: DataUpdateCoordinator) -> None:
+        """Store the handles needed to tear the entry down cleanly and the
+        diagnostics coordinator the entity platforms consume."""
         self.client = client
         self.unregister = unregister
         self.unsetup = unsetup
         self.task = task
         self.source = source
+        self.coordinator = coordinator
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -116,11 +130,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     seen: set[str] = set()
+    last_seen: dict[str, float] = {}       # address -> monotonic time last seen
 
     def on_advertisement(adv: Advertisement) -> None:
-        """Push each advertisement to the scanner; debug-log every packet and an
-        info heartbeat on first sight / every 25 unique devices."""
+        """Push each advertisement to the scanner; record last-seen time for the
+        diagnostics; debug-log every packet and an info heartbeat on first sight
+        / every 25 unique devices."""
         scanner.push(adv)
+        last_seen[adv.address] = time.monotonic()
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("%s: adv %s", entry.title, _describe_adv(adv))
         if adv.address not in seen:
@@ -142,11 +159,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             _LOGGER.info("%s: %s", entry.title, state)
         last_state = state
+        # Reflect connect/disconnect in the diagnostics immediately.
+        coordinator.async_set_updated_data(_snapshot())
 
     client = BleConnClient(
         transport, scan_phys=scan_phys,
         on_advertisement=on_advertisement, on_state=on_state,
     )
+
+    def _snapshot() -> dict:
+        """Cheap in-memory diagnostics snapshot (no radio round-trip)."""
+        now = time.monotonic()
+        return {
+            "connected": client.is_scanning,
+            "active_connections": client.active_connections,
+            "devices_in_range": sum(
+                1 for t in last_seen.values()
+                if now - t <= _DEVICES_IN_RANGE_WINDOW),
+        }
+
+    async def _async_update() -> dict:
+        """Coordinator refresh: return the current snapshot."""
+        return _snapshot()
+
+    coordinator: DataUpdateCoordinator = DataUpdateCoordinator(
+        hass, _LOGGER, name=f"unifi_ble {source}", config_entry=entry,
+        update_interval=_DIAGNOSTICS_INTERVAL, update_method=_async_update)
 
     # Connectable: HA routes bleak connections for devices seen by this scanner
     # through UnifiBleakClient, which resolves this AP's session by `source` from
@@ -172,13 +210,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     task = entry.async_create_background_task(
         hass, client.run(), name=f"unifi_ble[{source}]")
 
-    entry.runtime_data = UnifiBleRuntime(client, unregister, unsetup, task, source)
+    await coordinator.async_config_entry_first_refresh()
+    entry.runtime_data = UnifiBleRuntime(
+        client, unregister, unsetup, task, source, coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Tear down the entry: stop the client, unregister the scanner and its
     connector registration."""
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     runtime: UnifiBleRuntime = entry.runtime_data
     # Cancellation is the shutdown path: run()'s finally closes the transport.
     runtime.task.cancel()

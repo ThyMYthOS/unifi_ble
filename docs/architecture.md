@@ -73,6 +73,7 @@ flowchart LR
 | [`client.py`](../custom_components/unifi_ble/client.py) | `UnifiBleakClient(BaseBleakClient)` — bleak backend routing GATT through a `BleConnClient`, plus the source→client registry. |
 | [`__init__.py`](../custom_components/unifi_ble/__init__.py) | Config-entry setup: build the SSH transport, fail-fast probe, register one scanner per AP, run the client as a background task, clean unload. |
 | [`config_flow.py`](../custom_components/unifi_ble/config_flow.py) | UI flow: show the public key to provision in UniFi, collect AP connection details, validate by tunneling + handshaking, pin host keys. |
+| [`binary_sensor.py`](../custom_components/unifi_ble/binary_sensor.py), [`sensor.py`](../custom_components/unifi_ble/sensor.py) | Diagnostic entities (connectivity, active connections, devices in range) fed by a snapshot `DataUpdateCoordinator`. |
 | [`const.py`](../custom_components/unifi_ble/const.py), [`manifest.json`](../custom_components/unifi_ble/manifest.json), [`strings.json`](../custom_components/unifi_ble/strings.json), [`translations/`](../custom_components/unifi_ble/translations/) | Constants, metadata, UI strings. |
 
 ## Transport abstraction
