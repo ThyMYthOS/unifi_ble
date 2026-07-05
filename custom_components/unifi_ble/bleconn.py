@@ -376,7 +376,7 @@ class BleConnClient:
 
     # ---- GATT (connectable) operations, multiplexed over this session ---------
     #
-    # Schemas reversed live; see docs/bleconnd-gatt.md. connOpen always uses
+    # Schemas reversed live; see docs/unifi-ble-and-bleconnd.md. connOpen always uses
     # address type "public" (the firmware connects to the raw address as-is).
 
     @property

@@ -8,10 +8,10 @@ running commands or editing code — the environment has sharp edges.
 A Home Assistant custom integration that exposes UniFi access-point BLE radios as
 remote Bluetooth scanners. It talks to each AP's local `bleconnd` JSON API
 (`127.0.0.1:8383`, loopback) over an SSH tunnel and feeds advertisements into
-`habluetooth`. See `README.md` for the user-facing overview.
+`habluetooth`. See [`README.md`](README.md) for the user-facing overview.
 
-Deliverable code lives in `custom_components/unifi_ble/`. Helper scripts live in
-`tools/`.
+Deliverable code lives in [`custom_components/unifi_ble/`](custom_components/unifi_ble/).
+Helper scripts live in [`tools/`](tools/).
 
 ## Environment: read this first
 
@@ -19,14 +19,14 @@ This repo is worked on from a Claude Code snap sandbox with unusual constraints.
 
 - **Never call bare `python`/`pip`.** The snap injects `PYTHONPATH`, `PYTHONHOME`,
   and `PIP_PREFIX`, which hijack a normal venv and send installs into snap paths.
-  Always use the wrapper: `tools/py …` (it strips those vars). Install packages
-  with `tools/py -m pip install <pkg>` — they land in `.venv`.
+  Always use the wrapper [`tools/py`](tools/py) (it strips those vars). Install
+  packages with `tools/py -m pip install <pkg>` — they land in `.venv`.
 - **The snap shell's Python is 3.12** and **cannot execute the project's real
   venv/HA.** Home Assistant 2026.x requires Python 3.14, whose interpreter is not
   visible to the sandbox, and the user's home is permission-denied. Therefore:
   - Anything importing `homeassistant`/`habluetooth` must be run by the **user**
     in their own terminal, not by the agent.
-  - Use `tools/validate_ha.py` for HA-side checks — hand it to the user to run
+  - Use [`tools/validate_ha.py`](tools/validate_ha.py) for HA-side checks — hand it to the user to run
     (`.venv/bin/python tools/validate_ha.py`) and work from the pasted output.
   - You *can* still verify the transport/parser logic yourself with the snap's
     Python 3.12 (see below), since that code has no HA dependency.
@@ -50,13 +50,28 @@ Protocol codec, offline against captured pcaps:
 tools/py tools/bleconn.py --selftest ble/bleconnd.pcap ble/bleconnd/bleconn.pcap
 ```
 
+GATT layer, live against a connectable device (stdlib-only, via a forward):
+
+```bash
+tools/py tools/gatt_probe.py       --host 127.0.0.1 --port 8383 --mac <mac>  # reverse schemas
+tools/py tools/gatt_client_test.py --host 127.0.0.1 --port 8383 --mac <mac>  # exercise BleConnClient
+```
+
+Interactive bluetoothctl/gatttool-style CLI (scan / connect / gatt read/write/notify):
+
+```bash
+tools/py tools/blectl.py --host 127.0.0.1 --port 8383      # via a forward
+# or over SSH (needs asyncssh, HA venv):
+.venv/bin/python tools/blectl.py --ap <ap> --key <keyfile> [--jump-host <gw>]
+```
+
 HA API surface (must run in the user's real HA venv, not the agent):
 
 ```bash
 tools/validate_ha.py
 ```
 
-The SSH transport (`ssh.py`) is HA-free at import (the HA storage import is lazy),
+The SSH transport ([`ssh.py`](custom_components/unifi_ble/ssh.py)) is HA-free at import (the HA storage import is lazy),
 so it can be unit-tested with only `asyncssh` — e.g. against an in-process
 `asyncssh` server plus a fake `bleconnd`.
 
@@ -71,12 +86,21 @@ so it can be unit-tested with only `asyncssh` — e.g. against an in-process
   `BleAuthProto` DH + pre-shared-secret layer is not, and Protect holds the
   session). `:8080` (`blebrd` v1) is an opaque binary protocol we don't have the
   binary for. `:8383` over SSH is the chosen, proven path.
-- **`bleconn.py` is transport-agnostic.** `BleConnClient` takes a `Transport`
+- **[`bleconn.py`](custom_components/unifi_ble/bleconn.py) is transport-agnostic.** `BleConnClient` takes a `Transport`
   (`TcpTransport` for tools/tests, `SshTunnelTransport` for the integration).
   Keep new transport work behind that abstraction.
-- **The scanner is passive/non-connectable for now** (`connectable=False`). This
-  covers all broadcast sensors. Connectable GATT is a future phase using
-  `bleconnd`'s `gattc*` + reservation API.
+- **Connectable GATT status.** The connection + GATT-client protocol is fully
+  reversed ([`docs/unifi-ble-and-bleconnd.md`](docs/unifi-ble-and-bleconnd.md)).
+  `BleConnClient` has the GATT layer
+  (`gatt_connect`/`discover`/`read_char`/`write_char`/`start_notify`/…),
+  [`client.py`](custom_components/unifi_ble/client.py) provides `UnifiBleakClient`
+  (a bleak backend), and [`__init__.py`](custom_components/unifi_ble/__init__.py)
+  registers the scanner `connectable=True` with a `HaBluetoothConnector`
+  (`client=UnifiBleakClient`, `source`, `can_connect`) + `connection_slots`
+  (`DEFAULT_MAX_CONNECTIONS`) and `register_client(source, client)`. Remaining:
+  verify a real GATT connection through HA; tune slots/`can_connect` against the
+  radio's shared reservation pool.
+- **Read [`docs/architecture.md`](docs/architecture.md)** for the whole-system picture and file map.
 
 ## bleconnd protocol (quick reference)
 
@@ -91,10 +115,10 @@ maps that AD list to bleak/habluetooth fields.
 ## Conventions
 
 - Match the surrounding style; keep comments to load-bearing constraints only.
-- Verify changes to `bleconn.py`/`ssh.py` with `tools/py -m py_compile` and, where
-  possible, the scan/self-test tools before handing off.
+- Verify changes to [`bleconn.py`](custom_components/unifi_ble/bleconn.py)/[`ssh.py`](custom_components/unifi_ble/ssh.py)
+  with `tools/py -m py_compile` and, where possible, the scan/self-test tools before handing off.
 - Any change touching the `habluetooth` API surface (scanner construction,
-  `push()`, registration) must be re-validated via `tools/validate_ha.py` in the
+  `push()`, registration) must be re-validated via [`tools/validate_ha.py`](tools/validate_ha.py) in the
   user's HA — it is the one surface that shifts between HA versions.
 
 ## Do not

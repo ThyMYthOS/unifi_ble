@@ -14,14 +14,17 @@ additional client, starts a scan, and forwards every advertisement to Home
 Assistant. UniFi Protect keeps using its own path (the TLS bridge on `:8381`) and
 is not disturbed.
 
+```mermaid
+flowchart TB
+    radio["MT7915 radio"] --> bts["btservice (:8873)"]
+    bts --> bc["bleconnd (:8383, loopback)"]
+    bc -- "SSH direct-tcpip channel" --> cc["custom_components/unifi_ble"]
+    cc --> scanner["habluetooth remote scanner (one per AP)"]
+    scanner --> ha["Home Assistant"]
 ```
-MT7915 radio ─ btservice(:8873) ─ bleconnd(:8383, loopback)
-                                        │  (SSH direct-tcpip channel)
-                                        ▼
-                         Home Assistant ── custom_components/unifi_ble
-                                        │
-                          habluetooth remote scanner (one per AP)
-```
+
+For a full description of the AP BLE stack and the `bleconnd` wire protocol, see
+[docs/unifi-ble-and-bleconnd.md](docs/unifi-ble-and-bleconnd.md).
 
 Because `:8383` is loopback-only, the integration reaches it over SSH. It
 generates its own SSH keypair, shows you the public key at setup, and opens the
@@ -33,22 +36,28 @@ AP directly, it can hop through your UDM/gateway as an SSH jump host.
 
 - Home Assistant 2026.7+ (validated against `habluetooth` 6.26.4; the integration
   depends on the `bluetooth_adapters` integration).
-- UniFi APs with a BLE radio, adopted by a controller where you can enable
-  **Device SSH Authentication** and add an SSH public key.
+- UniFi APs with a BLE radio, adopted by a controller. SSH key access to the APs is
+  set via **Device SSH Authentication**; if you route through the gateway as a jump
+  host, its console SSH key is added manually (see Installation).
 - Network reachability from Home Assistant to each AP's SSH port, directly or via
   a jump host (e.g. the UDM/gateway).
 
 ## Installation
 
-1. Copy `custom_components/unifi_ble/` into your Home Assistant `config/custom_components/`
+1. Copy [`custom_components/unifi_ble/`](custom_components/unifi_ble/) into your Home Assistant `config/custom_components/`
    directory and restart Home Assistant.
 2. Go to **Settings → Devices & Services → Add Integration → "UniFi AP BLE Proxy"**.
-   The first screen shows a generated **public SSH key**.
-3. In UniFi, go to **Settings → System → Device SSH Authentication**, enable it,
-   and add that public key. It is pushed to your adopted devices (the APs and the
-   gateway), so one key covers everything.
-4. Back in Home Assistant, enter each AP's connection details. Add the integration
-   once per AP.
+   The first screen shows a generated **public SSH key** (a read-only field with a
+   copy icon).
+3. Provision that key in UniFi. There are two separate places:
+   - **APs:** **UniFi Devices → Device Updates and Settings → Device SSH
+     Authentication** — enable it and add the key. It's pushed to your adopted APs.
+   - **Gateway (only if you'll use it as an SSH jump host):** **Settings → Control
+     Plane → Console** only lets you set an SSH *password*, so SSH into the console
+     once with that password and append the key to `~/.ssh/authorized_keys`
+     manually — there's no key-upload UI for the console itself.
+4. Back in Home Assistant, enter each AP's connection details (set the jump host to
+   your gateway if HA can't reach the AP directly). Add the integration once per AP.
 
 ## Configuration
 
@@ -94,7 +103,7 @@ ssh -N -L 8383:127.0.0.1:8383 <ap-host>
 tools/py tools/scan_ha.py --targets 127.0.0.1:8383 --duration 20
 ```
 
-To exercise the **real SSH transport** (`ssh.py`) against a live AP with a key
+To exercise the **real SSH transport** ([`ssh.py`](custom_components/unifi_ble/ssh.py)) against a live AP with a key
 file — the production path, without Home Assistant — run it in the HA venv (needs
 `asyncssh`):
 
@@ -110,7 +119,7 @@ Python environment** (it imports `habluetooth`):
 .venv/bin/python tools/validate_ha.py
 ```
 
-See `AGENTS.md` for environment specifics (the venv wrapper, dependency pinning,
+See [`AGENTS.md`](AGENTS.md) for environment specifics (the venv wrapper, dependency pinning,
 and what can and cannot be run where).
 
 ## Security notes
