@@ -106,7 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.config_entries.async_update_entry(entry, title=f"UniFi AP {host}")
 
     device_registry = dr.async_get(hass)
-    device_registry.async_get_or_create(
+    device = device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         connections={(dr.CONNECTION_BLUETOOTH, dr.format_mac(source))},
         identifiers={(DOMAIN, source)},
@@ -162,8 +162,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     register_client(source, client)
 
     unsetup = scanner.async_setup()
+    # Passing source_domain + source_config_entry_id makes HA create a bluetooth
+    # config entry for this scanner, so it shows in the Bluetooth dashboard as an
+    # adapter/device (otherwise the scanner works but stays invisible in Settings).
     unregister = async_register_scanner(
-        hass, scanner, connection_slots=DEFAULT_MAX_CONNECTIONS)
+        hass, scanner, connection_slots=DEFAULT_MAX_CONNECTIONS,
+        source_domain=DOMAIN, source_model="UniFi AP (BLE proxy)",
+        source_config_entry_id=entry.entry_id, source_device_id=device.id)
     task = entry.async_create_background_task(
         hass, client.run(), name=f"unifi_ble[{source}]")
 
