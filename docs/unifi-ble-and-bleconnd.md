@@ -36,9 +36,12 @@ flowchart TB
     v2["blebr2d :::8381<br/>BLE bridge v2 (TLS 1.3 mTLS + X25519 DH)"]
     protect["unifi-protect (on the UDM)"]
 
+    subgraph AP
     radio --> hal --> core
     core --> v1
-    core --> v2 --> protect
+    core --> v2
+    end
+    v2 --> protect
 ```
 
 - **`btservice` (`127.0.0.1:8873`)** — the MediaTek Bluetooth HAL client
@@ -443,7 +446,7 @@ Confirmed / present action names, by area:
 How the protocol above is consumed by the Home Assistant integration:
 
 ```mermaid
-flowchart LR
+flowchart TD
     radio["AP MT7915 radio"] --> bc["bleconnd :8383 (loopback)"]
     bc -- "SSH direct-tcpip" --> client["BleConnClient (bleconn.py)"]
     client -- "parse_advertisement" --> scanner["UnifiBleScanner<br/>(BaseHaRemoteScanner)"]

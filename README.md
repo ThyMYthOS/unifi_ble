@@ -80,23 +80,72 @@ Each AP is identified by its BLE MAC (discovered during setup) so re-adding is i
 
 ## Repository layout
 
-```
-custom_components/unifi_ble/   The Home Assistant integration
-  bleconn.py    async bleconnd client + advertisement parser (transport-agnostic)
-  ssh.py        SSH tunnel transport + shared Ed25519 keypair management
-  scanner.py    UnifiBleScanner (habluetooth BaseHaRemoteScanner)
-  __init__.py   entry setup: one scanner per AP, register + background task
-  config_flow.py, const.py, manifest.json, strings.json, translations/
-tools/
-  py            run the project venv's Python with the snap sandbox env stripped
-  scan_ha.py    exercise the async client against forwarded ports; print adverts
-  bleconn.py    pcap decoder + one-shot probe for the bleconnd protocol
-  blectl.py     bluetoothctl/gatttool-style interactive BLE CLI over an AP
-  run_against_ap.py  run the real SSH transport against a live AP with a key file
-  validate_ha.py  validate the habluetooth API surface inside a real HA venv
+```mermaid
+treeView-beta
+repo
+├─ custom_components/unifi_ble/ ## The Home Assistant integration
+│  ├─ bleconn.py ## async bleconnd client + advertisement parser (transport-agnostic)
+│  ├─ ssh.py ## SSH tunnel transport + shared Ed25519 keypair management
+│  ├─ scanner.py ## UnifiBleScanner, a habluetooth BaseHaRemoteScanner
+│  ├─ client.py ## UnifiBleakClient, the bleak backend for connectable GATT
+│  ├─ __init__.py ## entry setup: one scanner per AP, register + background task
+│  ├─ config_flow.py ## setup UI: show public key, collect + validate AP details
+│  ├─ const.py
+│  ├─ manifest.json
+│  ├─ strings.json
+│  └─ translations/
+├─ docs/
+│  ├─ architecture.md ## whole-system component layout and data flow
+│  └─ unifi-ble-and-bleconnd.md ## authoritative bleconnd wire + GATT protocol reference
+└─ tools/
+   ├─ py ## run the project venv Python with the snap sandbox env stripped
+   ├─ scan_ha.py ## exercise the async client against forwarded ports; print adverts
+   ├─ bleconn.py ## pcap decoder + one-shot probe for the bleconnd protocol
+   ├─ blectl.py ## bluetoothctl/gatttool-style interactive BLE CLI over an AP
+   ├─ gatt_probe.py ## reverse the connection/GATT JSON live
+   ├─ gatt_client_test.py ## end-to-end test of the BleConnClient GATT layer
+   ├─ run_against_ap.py ## run the real SSH transport against a live AP with a key file
+   ├─ run_ha.sh ## launch HA from the venv with the integration linked in
+   └─ validate_ha.py ## validate the habluetooth API surface inside a real HA venv
 ```
 
 ## Development / testing
+
+### Setting up a virtualenv
+
+Create a virtualenv in the repo (the tools and tests expect it at `.venv`):
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+```
+
+Then install packages according to what you want to run:
+
+```bash
+# Protocol/transport tools + the test suite (no Home Assistant needed).
+# asyncssh drives the real SSH transport; pytest runs tests/.
+.venv/bin/python -m pip install asyncssh pytest
+
+# Also validating the Home Assistant API surface (tools/validate_ha.py).
+# This is large and pulls in habluetooth, bleak and voluptuous as dependencies.
+.venv/bin/python -m pip install homeassistant
+```
+
+The only hard runtime requirement of the integration itself is
+[`asyncssh`](https://asyncssh.readthedocs.io/) (`>=2.21.0`, see
+[`manifest.json`](custom_components/unifi_ble/manifest.json)); `habluetooth`,
+`bleak` and `voluptuous` are provided by Home Assistant at runtime, so you only
+need to install them locally for the HA-side checks. Note that Home Assistant
+2026.7+ requires **Python 3.14**, so create the venv with a 3.14 interpreter if you
+intend to install `homeassistant`.
+
+> If you are working from the Claude Code snap sandbox, the interpreter is hijacked
+> by injected `PYTHONPATH`/`PYTHONHOME`/`PIP_PREFIX` env vars — use the
+> [`tools/py`](tools/py) wrapper in place of `.venv/bin/python` for both installs and
+> runs. See [`AGENTS.md`](AGENTS.md) for the full set of environment caveats.
+
+### Running the tools
 
 The client and parser are transport-agnostic, so you can test them against a
 plain TCP forward without Home Assistant:
@@ -135,14 +184,6 @@ and what can and cannot be run where).
 - Host-key verification is currently disabled (`known_hosts=None`). For APs on a
   trusted management network this is a deliberate simplification; trust-on-first-use
   pinning is a planned option.
-
-## Roadmap
-
-- Optional trust-on-first-use SSH host-key pinning.
-- Connectable (GATT) proxying via `bleconnd`'s `gattc*` and connection-slot
-  reservation API (the radio reports `maxConnections: 8`).
-- Investigate the network-facing `:8381` bridge to remove SSH entirely (requires
-  reversing its `BleAuthProto` DH + pre-shared-secret handshake).
 
 ## Releasing
 
