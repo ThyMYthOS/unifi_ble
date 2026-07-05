@@ -15,15 +15,21 @@ Helper scripts live in [`tools/`](tools/).
 
 ## Environment: read this first
 
-This repo is worked on from a Claude Code snap sandbox with unusual constraints.
+This repo is typically worked on from a Claude Code snap sandbox with unusual
+constraints. **First check `ls /usr/bin/python3.14`** — the constraints below only
+apply when it is absent.
 
-- **Never call bare `python`/`pip`.** The snap injects `PYTHONPATH`, `PYTHONHOME`,
-  and `PIP_PREFIX`, which hijack a normal venv and send installs into snap paths.
-  Always use the wrapper [`tools/py`](tools/py) (it strips those vars). Install
-  packages with `tools/py -m pip install <pkg>` — they land in `.venv`.
-- **The snap shell's Python is 3.12** and **cannot execute the project's real
-  venv/HA.** Home Assistant 2026.x requires Python 3.14, whose interpreter is not
-  visible to the sandbox, and the user's home is permission-denied. Therefore:
+- **Which Python to use.** If `/usr/bin/python3.14` exists, call it directly (or
+  the project's `.venv/bin/python`) — it can run the real venv/HA, so the
+  [`tools/py`](tools/py) wrapper is **not** needed. `tools/py` is only required in
+  the snap sandbox, which ships **only Python 3.12** and injects `PYTHONPATH`,
+  `PYTHONHOME`, and `PIP_PREFIX` that hijack a normal venv and send installs into
+  snap paths; the wrapper strips those vars (installs then land in `.venv`). Never
+  call bare `python`/`pip` from a polluted snap shell.
+- **When you're limited to the snap's Python 3.12** (no `/usr/bin/python3.14`):
+  it **cannot execute the project's real venv/HA** — Home Assistant 2026.x needs
+  Python 3.14, whose interpreter isn't visible to the sandbox, and the user's home
+  is permission-denied. Therefore:
   - Anything importing `homeassistant`/`habluetooth` must be run by the **user**
     in their own terminal, not by the agent.
   - Use [`tools/validate_ha.py`](tools/validate_ha.py) for HA-side checks — hand it to the user to run
