@@ -86,6 +86,7 @@ tools/
   py            run the project venv's Python with the snap sandbox env stripped
   scan_ha.py    exercise the async client against forwarded ports; print adverts
   bleconn.py    pcap decoder + one-shot probe for the bleconnd protocol
+  blectl.py     bluetoothctl/gatttool-style interactive BLE CLI over an AP
   run_against_ap.py  run the real SSH transport against a live AP with a key file
   validate_ha.py  validate the habluetooth API surface inside a real HA venv
 ```
