@@ -2,8 +2,11 @@
 
 [![Release](https://img.shields.io/github/v/release/ThyMYthOS/unifi_ble?include_prereleases&sort=semver)](https://github.com/ThyMYthOS/unifi_ble/releases)
 [![Tests](https://github.com/ThyMYthOS/unifi_ble/actions/workflows/tests.yml/badge.svg)](https://github.com/ThyMYthOS/unifi_ble/actions/workflows/tests.yml)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7%2B-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/)
 [![License](https://img.shields.io/github/license/ThyMYthOS/unifi_ble)](LICENSE)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ThyMYthOS&repository=unifi_ble&category=integration)
 
 Turn the Bluetooth Low Energy radios built into UniFi access points into remote
 Bluetooth scanners for Home Assistant — the same role an ESPHome Bluetooth proxy
@@ -197,7 +200,9 @@ git push origin v0.2.1
 
 The workflow syncs `manifest.json`'s version to the tag (leading `v` optional),
 zips `custom_components/unifi_ble/` into `unifi_ble.zip`, and publishes a GitHub
-Release with that asset and auto-generated notes.
+Release with that asset and auto-generated notes. [`hacs.json`](hacs.json) sets
+`zip_release`, so HACS installs the attached zip directly. Custom repositories can
+be added in HACS via **HACS → ⋮ → Custom repositories** (category *Integration*).
 
 ## License
 
