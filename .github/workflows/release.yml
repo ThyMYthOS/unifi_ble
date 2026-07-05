@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync manifest.json version to the tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import json, os
+          path = "custom_components/unifi_ble/manifest.json"
+          manifest = json.load(open(path))
+          manifest["version"] = os.environ["VERSION"]
+          with open(path, "w") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          print("manifest version ->", manifest["version"])
+          PY
+
+      - name: Package integration
+        # HACS zip releases expect the integration files at the archive root.
+        run: |
+          cd custom_components/unifi_ble
+          zip -r "${GITHUB_WORKSPACE}/unifi_ble.zip" . -x '*/__pycache__/*'
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: unifi_ble.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

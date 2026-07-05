@@ -139,6 +139,20 @@ and what can and cannot be run where).
 - Investigate the network-facing `:8381` bridge to remove SSH entirely (requires
   reversing its `BleAuthProto` DH + pre-shared-secret handshake).
 
+## Releasing
+
+Releases are produced by the [`Release`](.github/workflows/release.yml) GitHub
+Actions workflow, which runs whenever a tag is pushed:
+
+```bash
+git tag v0.2.1
+git push origin v0.2.1
+```
+
+The workflow syncs `manifest.json`'s version to the tag (leading `v` optional),
+zips `custom_components/unifi_ble/` into `unifi_ble.zip`, and publishes a GitHub
+Release with that asset and auto-generated notes.
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE) — the same license as Home
