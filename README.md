@@ -1,5 +1,10 @@
 # UniFi AP BLE Proxy for Home Assistant
 
+[![Release](https://img.shields.io/github/v/release/ThyMYthOS/unifi_ble?include_prereleases&sort=semver)](https://github.com/ThyMYthOS/unifi_ble/releases)
+[![Tests](https://github.com/ThyMYthOS/unifi_ble/actions/workflows/tests.yml/badge.svg)](https://github.com/ThyMYthOS/unifi_ble/actions/workflows/tests.yml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7%2B-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/)
+[![License](https://img.shields.io/github/license/ThyMYthOS/unifi_ble)](LICENSE)
+
 Turn the Bluetooth Low Energy radios built into UniFi access points into remote
 Bluetooth scanners for Home Assistant — the same role an ESPHome Bluetooth proxy
 plays, but using hardware you already have. Each adopted AP becomes a coverage
