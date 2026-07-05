@@ -4,13 +4,17 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from homeassistant.components.bluetooth import async_register_scanner
+from homeassistant.components.bluetooth import (
+    HaBluetoothConnector,
+    async_register_scanner,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
 from .bleconn import Advertisement, BleConnClient, probe_transport
+from .client import UnifiBleakClient, register_client, unregister_client
 from .const import (
     CONF_HOST,
     CONF_HOST_KEYS,
@@ -19,6 +23,7 @@ from .const import (
     CONF_PORT,
     CONF_SCAN_PHYS,
     CONF_USERNAME,
+    DEFAULT_MAX_CONNECTIONS,
     DEFAULT_SCAN_PHYS,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -56,14 +61,18 @@ class UnifiBleRuntime:
     """Holds the per-entry client, scanner and background task."""
 
     def __init__(self, client: BleConnClient, unregister, unsetup,
-                 task: asyncio.Task) -> None:
+                 task: asyncio.Task, source: str) -> None:
+        """Store the handles needed to tear the entry down cleanly."""
         self.client = client
         self.unregister = unregister
         self.unsetup = unsetup
         self.task = task
+        self.source = source
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up one AP: build the SSH transport, probe it (fail fast), register a
+    connectable remote scanner, and run the scan client as a background task."""
     host = entry.data[CONF_HOST]
     port = entry.data.get(CONF_PORT, 8383)
     scan_phys = tuple(entry.data.get(CONF_SCAN_PHYS, DEFAULT_SCAN_PHYS))
@@ -92,14 +101,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_HOST_KEYS: transport.host_keys})
 
-    # Entries created before host-based naming were titled "UniFi AP <mac>";
-    # switch those to the hostname (user-customized titles are left alone).
-    if entry.unique_id and entry.title.lower() == f"unifi ap {entry.unique_id}".lower():
-        hass.config_entries.async_update_entry(entry, title=f"UniFi AP {host}")
-
     # entry.unique_id is the AP's BLE MAC (set in the config flow) -> stable source.
     source = (entry.unique_id or f"{host}:{port}").upper()
-    scanner = UnifiBleScanner(source, entry.title, connector=None, connectable=False)
+    hass.config_entries.async_update_entry(entry, title=f"UniFi AP {host}")
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -108,12 +112,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         identifiers={(DOMAIN, source)},
         manufacturer="Ubiquiti",
         model="UniFi AP (BLE proxy)",
-        name=entry.title,
+        name=f"Unifi BLE Adapter [{dr.format_mac(source)}]",
     )
 
     seen: set[str] = set()
 
     def on_advertisement(adv: Advertisement) -> None:
+        """Push each advertisement to the scanner; debug-log every packet and an
+        info heartbeat on first sight / every 25 unique devices."""
         scanner.push(adv)
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("%s: adv %s", entry.title, _describe_adv(adv))
@@ -127,6 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     last_state: str | None = None
 
     def on_state(state: str) -> None:
+        """Log client state transitions (repeats at debug, drops at warning)."""
         nonlocal last_state
         if state == last_state:
             _LOGGER.debug("%s: still %s", entry.title, state)
@@ -141,20 +148,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         on_advertisement=on_advertisement, on_state=on_state,
     )
 
+    # Connectable: HA routes bleak connections for devices seen by this scanner
+    # through UnifiBleakClient, which resolves this AP's session by `source` from
+    # the registry. can_connect gates on session health and the AP's free slots.
+    def can_connect() -> bool:
+        """Whether HA may route a new GATT connection through this AP right now."""
+        return client.is_scanning and client.active_connections < DEFAULT_MAX_CONNECTIONS
+
+    connector = HaBluetoothConnector(
+        client=UnifiBleakClient, source=source, can_connect=can_connect)
+    scanner = UnifiBleScanner(source, entry.title, connector=connector,
+                              connectable=True)
+    register_client(source, client)
+
     unsetup = scanner.async_setup()
-    unregister = async_register_scanner(hass, scanner)
+    unregister = async_register_scanner(
+        hass, scanner, connection_slots=DEFAULT_MAX_CONNECTIONS)
     task = entry.async_create_background_task(
         hass, client.run(), name=f"unifi_ble[{source}]")
 
-    entry.runtime_data = UnifiBleRuntime(client, unregister, unsetup, task)
+    entry.runtime_data = UnifiBleRuntime(client, unregister, unsetup, task, source)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Tear down the entry: stop the client, unregister the scanner and its
+    connector registration."""
     runtime: UnifiBleRuntime = entry.runtime_data
     # Cancellation is the shutdown path: run()'s finally closes the transport.
     runtime.task.cancel()
     await asyncio.gather(runtime.task, return_exceptions=True)
     runtime.unregister()
     runtime.unsetup()
+    unregister_client(runtime.source)
     return True

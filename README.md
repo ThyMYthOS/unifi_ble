@@ -5,9 +5,6 @@ Bluetooth scanners for Home Assistant — the same role an ESPHome Bluetooth pro
 plays, but using hardware you already have. Each adopted AP becomes a coverage
 point; Home Assistant aggregates them and picks the closest one per device by RSSI.
 
-> **Status: early / experimental.** Passive advertisement scanning is implemented
-> and validated end-to-end. Connectable (GATT) proxying is not implemented yet.
-
 ## How it works
 
 UniFi APs run a local BLE service, `bleconnd`, that exposes a line-oriented JSON

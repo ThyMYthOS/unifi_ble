@@ -1,10 +1,13 @@
 """SSH tunnel transport and shared keypair management.
 
 The integration owns a single Ed25519 keypair (persisted in HA storage). The user
-provisions its public key once into UniFi's Device SSH Authentication, which pushes
-it to all adopted devices (APs and the gateway). We then open an SSH connection to
-each AP — optionally hopping through the UDM gateway — and forward a direct-tcpip
-channel to the AP's loopback bleconnd. No local ports, no external autossh.
+provisions its public key into UniFi: on the APs via Device SSH Authentication
+(UniFi Devices → Device Updates and Settings), and — only if the gateway is used
+as a jump host — by appending it to the console's ~/.ssh/authorized_keys manually
+(Settings → Control Plane → Console offers only an SSH password). We then open an
+SSH connection to each AP — optionally hopping through the gateway — and forward a
+direct-tcpip channel to the AP's loopback bleconnd. No local ports, no external
+autossh.
 
 Host keys are pinned trust-on-first-use: the config flow probes with verification
 off, records the keys each server presented (`observed_host_keys`), and stores them
@@ -49,6 +52,8 @@ class SshTunnelTransport(Transport):
                  jump_host: str | None = None, jump_user: str | None = None,
                  host_keys: dict[str, str] | None = None,
                  ssh_port: int = 22, connect_timeout: float = 15.0):
+        """Configure the tunnel to ``ap_host`` (optionally via a jump host),
+        authenticating with ``private_key`` and pinning the given ``host_keys``."""
         self._ap_host = ap_host
         self._ap_user = ap_user
         self._port = bleconn_port
@@ -66,6 +71,8 @@ class SshTunnelTransport(Transport):
         self.observed_host_keys: dict[str, str] = {}
 
     def _known_hosts(self, host: str):
+        """Return an asyncssh known_hosts for a pinned host, or None (trust on
+        first contact) if the host key hasn't been pinned yet."""
         line = self.host_keys.get(host)
         if not line:
             return None                           # not pinned yet: first contact
@@ -74,11 +81,14 @@ class SshTunnelTransport(Transport):
 
     def _record_host_key(self, host: str,
                          conn: asyncssh.SSHClientConnection) -> None:
+        """Remember the host key a server presented, for later pinning."""
         key = conn.get_server_host_key()
         if key is not None:
             self.observed_host_keys[host] = key.export_public_key().decode().strip()
 
     async def connect(self):
+        """Open the SSH connection(s) and a direct-tcpip channel to the AP's
+        loopback bleconnd; return the channel's (reader, writer)."""
         tunnel = None
         if self._jump_host:
             self._jump_conn = await asyncssh.connect(
@@ -98,6 +108,7 @@ class SshTunnelTransport(Transport):
         return await self._conn.open_connection("127.0.0.1", self._port)
 
     async def disconnect(self) -> None:
+        """Close the AP and jump-host SSH connections (teardown never raises)."""
         for conn in (self._conn, self._jump_conn):
             if conn is not None:
                 conn.close()
@@ -108,5 +119,6 @@ class SshTunnelTransport(Transport):
         self._conn = self._jump_conn = None
 
     def describe(self) -> str:
+        """Human-readable summary of the tunnel target (for logs)."""
         via = f" via {self._jump_user}@{self._jump_host}" if self._jump_host else ""
         return f"{self._ap_user}@{self._ap_host}:{self._port}{via}"

@@ -15,11 +15,13 @@ _LOGGER = logging.getLogger(__name__)
 class UnifiBleScanner(BaseHaRemoteScanner):
     """Feeds advertisements from one UniFi AP into HA's Bluetooth stack.
 
-    Passive/non-connectable for now: we forward advertisements only. Connectable
-    GATT proxying (via bleconnd's gattc*/reservation API) is a future phase.
+    Registered connectable: advertisements are forwarded here, and connections to
+    the devices it sees are routed through ``client.UnifiBleakClient`` via the
+    ``HaBluetoothConnector`` attached at registration.
     """
 
     def push(self, adv: Advertisement) -> None:
+        """Forward one parsed advertisement into habluetooth."""
         self._async_on_advertisement(
             address=adv.address,
             rssi=adv.rssi,

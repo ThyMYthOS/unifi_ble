@@ -14,12 +14,18 @@ Wire format (see also tools/bleconn.py):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import struct
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+
+
+def _suppress_errors():
+    """Suppress non-cancellation errors during best-effort GATT cleanup."""
+    return contextlib.suppress(Exception)
 
 FRAME_HDR = struct.Struct(">B B H I")
 ENVELOPE, BODY = 1, 2
@@ -44,15 +50,17 @@ class Advertisement:
 
 
 def _u16_uuid(v: int) -> str:
+    """Expand a 16-bit Bluetooth SIG UUID to its full 128-bit string form."""
     return f"0000{v:04x}{_UUID_BASE}"
 
 
 def _u32_uuid(v: int) -> str:
+    """Expand a 32-bit Bluetooth SIG UUID to its full 128-bit string form."""
     return f"{v:08x}{_UUID_BASE}"
 
 
 def _u128_uuid(b: bytes) -> str:
-    # 16 bytes little-endian on the wire -> big-endian hyphenated string.
+    """Format 16 little-endian UUID bytes as a big-endian hyphenated UUID string."""
     h = b[::-1].hex()
     return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
@@ -114,6 +122,7 @@ def parse_advertisement(body: dict) -> Advertisement | None:
 
 
 def _encode_message(action: str, params: dict, msg_id: str) -> bytes:
+    """Encode a request as the envelope frame + body frame byte stream."""
     env = {"action": action, "id": msg_id, "timestamp": int(time.time() * 1000),
            "type": "request"}
     out = bytearray()
@@ -124,6 +133,7 @@ def _encode_message(action: str, params: dict, msg_id: str) -> bytes:
 
 
 async def _read_frame(reader: asyncio.StreamReader) -> tuple[int, dict]:
+    """Read one framed message: return (frame type, decoded JSON body)."""
     hdr = await reader.readexactly(FRAME_HDR.size)
     ftype, _flags, _resv, length = FRAME_HDR.unpack(hdr)
     raw = await reader.readexactly(length) if length else b""
@@ -151,12 +161,15 @@ class Transport:
     """Supplies a byte stream to an AP's bleconnd. Subclasses implement the how."""
 
     async def connect(self):  # -> tuple[StreamReader-like, StreamWriter-like]
+        """Open the transport and return a (reader, writer) stream pair."""
         raise NotImplementedError
 
     async def disconnect(self) -> None:
+        """Close the transport."""
         raise NotImplementedError
 
     def describe(self) -> str:
+        """Human-readable transport target (for logs)."""
         return self.__class__.__name__
 
 
@@ -164,16 +177,19 @@ class TcpTransport(Transport):
     """Plain TCP, e.g. to a pre-existing SSH `-L` forward. Used by the test tools."""
 
     def __init__(self, host: str, port: int):
+        """Record the target host and port."""
         self.host = host
         self.port = port
         self._writer = None
 
     async def connect(self):
+        """Open a TCP connection and return its (reader, writer)."""
         reader, writer = await asyncio.open_connection(self.host, self.port)
         self._writer = writer
         return reader, writer
 
     async def disconnect(self) -> None:
+        """Close the TCP connection."""
         if self._writer is not None:
             self._writer.close()
             try:
@@ -183,6 +199,7 @@ class TcpTransport(Transport):
             self._writer = None
 
     def describe(self) -> str:
+        """Human-readable transport target (for logs)."""
         return f"{self.host}:{self.port}"
 
 
@@ -193,6 +210,8 @@ class BleConnClient:
                  on_advertisement: AdvCallback,
                  on_state: Callable[[str], None] | None = None,
                  reconnect_delay: float = 5.0):
+        """Configure the client with its transport, scan PHYs, and callbacks
+        (``on_advertisement`` per advert, ``on_state`` on lifecycle changes)."""
         self._transport = transport
         self.scan_phys = list(scan_phys)
         self._on_adv = on_advertisement
@@ -205,9 +224,17 @@ class BleConnClient:
         self._stop_event = asyncio.Event()
         self.iface: str | None = None
         self.adapter_mac: str | None = None
+        # GATT connection state (multiplexed over this same bleconnd session).
+        self._conn_opened: dict[int, asyncio.Future] = {}
+        self._conn_closed: dict[int, asyncio.Future] = {}
+        self._disconnect_cbs: dict[int, Callable[[], None]] = {}
+        self._notify_cbs: dict[tuple[int, int], Callable[[bytes], None]] = {}
+        self._conn_mtu: dict[int, int] = {}
 
     async def _request(self, action: str, params: dict | None = None,
                        timeout: float = 10.0) -> dict:
+        """Send a request and await its correlated response body, raising on a
+        non-zero errorCode or timeout."""
         assert self._writer is not None
         msg_id = str(uuid.uuid4())
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
@@ -224,6 +251,8 @@ class BleConnClient:
         return body
 
     async def _session(self) -> None:
+        """Run one connection lifetime: connect, handshake, start scanning, and
+        pump the read loop until it ends; always tears the transport down."""
         reader, writer = await self._transport.connect()
         if self._closing:                         # stop() raced with connect()
             await self._transport.disconnect()
@@ -248,6 +277,7 @@ class BleConnClient:
             self._reader = self._writer = None
 
     async def _read_loop(self, reader: asyncio.StreamReader) -> None:
+        """Read messages forever: resolve response futures, dispatch events."""
         while True:
             env, body = await _read_message(reader)
             msg_id = env.get("id")
@@ -255,16 +285,66 @@ class BleConnClient:
                 fut = self._pending[msg_id]
                 if not fut.done():
                     fut.set_result((env, body))
-            elif env.get("action") == "scanResult" or env.get("type") == "event":
-                adv = parse_advertisement(body)
-                if adv is not None:
-                    self._on_adv(adv)
+            elif env.get("type") == "event":
+                self._dispatch_event(env.get("name"), body)
+
+    def _dispatch_event(self, name: str | None, body: dict) -> None:
+        """Route a bleconnd event (keyed by ``name``) to the right handler:
+        advertisements, connection open/close, and characteristic notifications."""
+        if name == "scanResult":
+            adv = parse_advertisement(body)
+            if adv is not None:
+                self._on_adv(adv)
+        elif name == "connOpened":
+            h = body.get("connHandle")
+            self._conn_mtu[h] = body.get("connMtu", 23)
+            fut = self._conn_opened.get(h)
+            if fut is not None and not fut.done():
+                fut.set_result(body)
+        elif name == "connClosed":
+            h = body.get("connHandle")
+            ofut = self._conn_opened.get(h)
+            if ofut is not None and not ofut.done():
+                ofut.set_exception(RuntimeError(f"connection closed: "
+                                                f"{body.get('reason')}"))
+            cfut = self._conn_closed.pop(h, None)
+            if cfut is not None and not cfut.done():
+                cfut.set_result(body)
+            cb = self._disconnect_cbs.pop(h, None)
+            self._conn_mtu.pop(h, None)
+            for key in [k for k in self._notify_cbs if k[0] == h]:
+                self._notify_cbs.pop(key, None)
+            if cb is not None:
+                cb()
+        elif name == "gattsCharValueNotify":
+            h, ch = body.get("connHandle"), body.get("handle")
+            cb = self._notify_cbs.get((h, ch))
+            if cb is not None:
+                try:
+                    cb(bytes.fromhex(body.get("data", "")))
+                except ValueError:
+                    pass
+        # connsChanged / connParams / connClosing: no action needed.
 
     def _fail_pending(self) -> None:
+        """Cancel outstanding requests and tear down GATT state after a session
+        drop, firing each connection's disconnect callback."""
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
+        # The bleconnd session dropped: every GATT connection is gone with it.
+        for fut in list(self._conn_opened.values()) + list(self._conn_closed.values()):
+            if not fut.done():
+                fut.cancel()
+        self._conn_opened.clear()
+        self._conn_closed.clear()
+        self._conn_mtu.clear()
+        self._notify_cbs.clear()
+        cbs = list(self._disconnect_cbs.values())
+        self._disconnect_cbs.clear()
+        for cb in cbs:
+            cb()
 
     async def run(self) -> None:
         """Connect and keep scanning, reconnecting on failure, until stop()
@@ -289,9 +369,132 @@ class BleConnClient:
             await self._transport.disconnect()
 
     async def stop(self) -> None:
+        """Signal the run loop to stop and close the transport."""
         self._closing = True
         self._stop_event.set()
         await self._transport.disconnect()
+
+    # ---- GATT (connectable) operations, multiplexed over this session ---------
+    #
+    # Schemas reversed live; see docs/bleconnd-gatt.md. connOpen always uses
+    # address type "public" (the firmware connects to the raw address as-is).
+
+    @property
+    def is_scanning(self) -> bool:
+        """True while the session is up and not shutting down."""
+        return self._writer is not None and not self._closing
+
+    @property
+    def active_connections(self) -> int:
+        """Number of fully-open GATT connections (post connOpened)."""
+        return len(self._conn_mtu)
+
+    def connection_mtu(self, conn_handle: int) -> int:
+        """Negotiated MTU for a connection (23 if unknown)."""
+        return self._conn_mtu.get(conn_handle, 23)
+
+    async def gatt_connect(self, mac: str, timeout: float = 30.0) -> int:
+        """Open a connection to a peer; return its connHandle once fully open."""
+        loop = asyncio.get_running_loop()
+        body = await self._request("connOpen", {"addr": {"mac": mac, "type": "public"}})
+        ch = body["connHandle"]
+        fut = loop.create_future()
+        self._conn_opened[ch] = fut
+        try:
+            await asyncio.wait_for(fut, timeout)
+        except (TimeoutError, asyncio.CancelledError):
+            with _suppress_errors():
+                await self._request("connClose", {"connHandle": ch}, timeout=5)
+            raise
+        finally:
+            self._conn_opened.pop(ch, None)
+        return ch
+
+    def set_disconnect_callback(self, conn_handle: int,
+                               callback: Callable[[], None]) -> None:
+        """Register a callback fired when the given connection closes/drops."""
+        self._disconnect_cbs[conn_handle] = callback
+
+    async def gatt_disconnect(self, conn_handle: int) -> None:
+        """Close a connection and drop its notify/disconnect callbacks."""
+        for key in [k for k in self._notify_cbs if k[0] == conn_handle]:
+            self._notify_cbs.pop(key, None)
+        self._disconnect_cbs.pop(conn_handle, None)
+        with _suppress_errors():
+            await self._request("connClose", {"connHandle": conn_handle}, timeout=8)
+
+    async def gatt_discover(self, conn_handle: int) -> list[dict]:
+        """Return [{handle, uuid, characteristics:[{handle, uuid, properties,
+        descriptors:[{handle, uuid}]}]}] for the peer's primary services."""
+        await self._request("gattcDbUpdate", {"connHandle": conn_handle})
+        svc_handles = await self._request("gattcPrimaryServicesGet",
+                                          {"connHandle": conn_handle})
+        services = []
+        for sh in svc_handles or []:
+            s = await self._request("gattcServiceGet",
+                                    {"connHandle": conn_handle, "handle": sh})
+            chars = []
+            for chh in s.get("includedChars", []):
+                c = await self._request("gattcCharGet",
+                                        {"connHandle": conn_handle, "handle": chh})
+                descs = [
+                    {"handle": dh,
+                     "uuid": (await self._request(
+                         "gattcDescGet",
+                         {"connHandle": conn_handle, "handle": dh})).get("uuid")}
+                    for dh in c.get("includedDescriptors", [])
+                ]
+                chars.append({"handle": chh, "uuid": c.get("uuid"),
+                              "properties": c.get("properties", []),
+                              "descriptors": descs})
+            services.append({"handle": sh, "uuid": s.get("uuid"),
+                             "characteristics": chars})
+        return services
+
+    async def gatt_read_char(self, conn_handle: int, handle: int) -> bytes:
+        """Read a characteristic value by its value handle."""
+        r = await self._request("gattcCharValueRead",
+                                {"connHandle": conn_handle, "handle": handle})
+        return bytes.fromhex(r.get("data", ""))
+
+    async def gatt_write_char(self, conn_handle: int, handle: int, data: bytes,
+                              response: bool = True) -> None:
+        """Write a characteristic value. The wire value key is ``data`` (hex),
+        not ``value`` (which the firmware rejects with a driver error)."""
+        await self._request("gattcCharValueWrite",
+                            {"connHandle": conn_handle, "handle": handle,
+                             "data": data.hex(), "withResponse": response})
+
+    async def gatt_read_desc(self, conn_handle: int, handle: int) -> bytes:
+        """Read a descriptor value by its handle."""
+        r = await self._request("gattcDescValueRead",
+                                {"connHandle": conn_handle, "handle": handle})
+        return bytes.fromhex(r.get("data", ""))
+
+    async def gatt_write_desc(self, conn_handle: int, handle: int,
+                              data: bytes) -> None:
+        """Write a descriptor value by its handle (hex ``data`` key)."""
+        await self._request("gattcDescValueWrite",
+                            {"connHandle": conn_handle, "handle": handle,
+                             "data": data.hex()})
+
+    async def gatt_start_notify(self, conn_handle: int, char_handle: int,
+                                cccd_handle: int, callback: Callable[[bytes], None],
+                                indicate: bool = False) -> None:
+        """Subscribe to a characteristic. There is no dedicated subscribe action:
+        we register ``callback`` for (conn, char) — invoked from the
+        ``gattsCharValueNotify`` event — and enable the CCCD (uuid 2902) by
+        writing ``0100`` (notify) or ``0200`` (indicate)."""
+        self._notify_cbs[(conn_handle, char_handle)] = callback
+        await self.gatt_write_desc(conn_handle, cccd_handle,
+                                   b"\x02\x00" if indicate else b"\x01\x00")
+
+    async def gatt_stop_notify(self, conn_handle: int, char_handle: int,
+                               cccd_handle: int) -> None:
+        """Unsubscribe: drop the callback and clear the CCCD (write ``0000``)."""
+        self._notify_cbs.pop((conn_handle, char_handle), None)
+        with _suppress_errors():
+            await self.gatt_write_desc(conn_handle, cccd_handle, b"\x00\x00")
 
 
 async def probe_transport(transport: Transport, timeout: float = 15.0) -> dict:
@@ -299,6 +502,7 @@ async def probe_transport(transport: Transport, timeout: float = 15.0) -> dict:
     reader, writer = await asyncio.wait_for(transport.connect(), timeout)
     try:
         async def request(action: str, params: dict) -> dict:
+            """Send a request and return the response body, skipping any events."""
             writer.write(_encode_message(action, params, str(uuid.uuid4())))
             await writer.drain()
             while True:                           # skip events interleaved with the response

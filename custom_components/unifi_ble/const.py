@@ -13,3 +13,7 @@ CONF_HOST_KEYS = "host_keys"
 DEFAULT_PORT = 8383
 DEFAULT_USERNAME = "admin"
 DEFAULT_SCAN_PHYS = ["1M"]
+
+# Concurrent GATT connections to advertise to Home Assistant per AP. The radio's
+# reservation pool is 8, shared with UniFi Protect; keep a conservative default.
+DEFAULT_MAX_CONNECTIONS = 3
