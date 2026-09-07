@@ -79,7 +79,7 @@ jobs:
           # serialx (a `usb` requirement) imports aioesphomeapi in its esphome
           # serial platform without declaring it, so the bluetooth -> usb chain
           # needs it present to import.
-          reqs.append("aioesphomeapi")
+          reqs.extend(["aioesphomeapi", "aiohasupervisor"])
           reqs = list(dict.fromkeys(reqs))
           subprocess.check_call([sys.executable, "-m", "pip", "install", *reqs])
           PY
