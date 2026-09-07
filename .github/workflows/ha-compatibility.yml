@@ -80,6 +80,9 @@ jobs:
           # serial platform without declaring it, so the bluetooth -> usb chain
           # needs it present to import.
           reqs.append("aioesphomeapi")
+          # The USB consumer imports hassio directly, but does not declare its
+          # aiohasupervisor requirement in the dependency chain.
+          reqs.append("aiohasupervisor")
           reqs = list(dict.fromkeys(reqs))
           subprocess.check_call([sys.executable, "-m", "pip", "install", *reqs])
           PY
